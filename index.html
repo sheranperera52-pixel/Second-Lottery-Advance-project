@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>NEON LOTTO PRO – Ultra Rolling Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --bg: #050510; --neon: #00ffff; --pink: #ff4dff;
+            --green: #00ff88; --red: #ff4444; --yellow: #ffee55; --blue: #4da6ff;
+            --panel-bg: rgba(2, 2, 24, 0.98);
+        }
+
+        body {
+            margin: 0; background: var(--bg); color: white;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden; height: 100vh;
+        }
+
+        /* --- Updated Wallet UI --- */
+        .wallet-display {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px 15px;
+            border-radius: 50px;
+            border: 1px solid var(--yellow);
+            gap: 8px;
+        }
+
+        /* --- Updated Message Center Display --- */
+        .dialog { 
+            position: fixed; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            padding: 20px 40px; 
+            border-radius: 15px; 
+            z-index: 1000; 
+            display: none; 
+            text-align: center; 
+            font-weight: bold;
+            font-size: 1.2rem;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            min-width: 250px;
+            border: 2px solid rgba(255,255,255,0.2);
+            animation: popIn 0.3s ease-out;
+        }
+
+        @keyframes popIn {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        /* Animations */
+        @keyframes rollingText {
+            0% { transform: translateY(0); color: var(--neon); }
+            25% { transform: translateY(-5px); color: var(--pink); }
+            50% { transform: translateY(0); color: var(--yellow); }
+            75% { transform: translateY(5px); color: var(--green); }
+            100% { transform: translateY(0); color: var(--neon); }
+        }
+        .rolling { display: inline-block; animation: rollingText 0.5s infinite; font-weight: 900; }
+
+        @keyframes neonBlink {
+            0%, 100% { color: var(--pink); text-shadow: 0 0 10px var(--pink); opacity: 1; }
+            50% { color: #ffffff; text-shadow: none; opacity: 0.6; }
+        }
+        .match-blink { animation: neonBlink 1s infinite; font-weight: bold; }
+
+        @keyframes greenNeonBlink {
+            0%, 100% { color: var(--green); text-shadow: 0 0 8px var(--green), 0 0 15px var(--green); opacity: 1; }
+            50% { color: #fff; text-shadow: none; opacity: 0.8; }
+        }
+        .prize-blink { animation: greenNeonBlink 0.8s infinite; font-weight: bold; font-size: 18px; }
+
+        @keyframes floatBall {
+            0% { transform: translateY(0px) scale(1); }
+            50% { transform: translateY(-15px) scale(1.05); }
+            100% { transform: translateY(0px) scale(1); }
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        
+        .header { display: flex; justify-content: space-between; padding: 15px; background: rgba(255,255,255,0.05); border-bottom: 1px solid var(--neon); align-items: center; }
+        #timer { font-size: 55px; text-align: center; color: var(--neon); text-shadow: 0 0 15px var(--neon); margin: 10px 0; min-height: 70px; }
+
+        button { 
+            background: transparent; border: 2px solid var(--neon); color: var(--neon); 
+            padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: bold;
+            transition: 0.3s; text-transform: uppercase;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        button:hover:not(:disabled) { background: var(--neon); color: black; box-shadow: 0 0 15px var(--neon); }
+        button:disabled { border-color: #444; color: #444; cursor: not-allowed; opacity: 0.6; }
+        
+        .panel { 
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 90%; max-width: 550px; height: 80vh; background: var(--panel-bg);
+            border: 2px solid var(--neon); border-radius: 15px; padding: 20px;
+            display: none; overflow-y: auto; z-index: 100; box-shadow: 0 0 40px rgba(0,0,0,0.8);
+        }
+
+        .close-btn { float: right; color: var(--red); font-size: 28px; cursor: pointer; font-weight: bold; }
+
+        .num-container { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+        .num-badge { 
+            background: rgba(255,255,255,0.08); border: 1px solid #333; 
+            width: 34px; height: 34px; display: flex; align-items: center; 
+            justify-content: center; border-radius: 6px; font-family: monospace;
+            font-size: 16px; color: #ccc;
+        }
+        .num-badge.match { border-color: var(--pink); color: var(--pink); font-weight: bold; box-shadow: 0 0 8px var(--pink); }
+
+        .card { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px; margin-bottom: 12px; border: 1px solid #1a1a3a; }
+        
+        .win-ball { 
+            width: 55px; height: 55px; border-radius: 50%; color: white;
+            display: flex; align-items: center; justify-content: center; font-weight: 900;
+            font-size: 20px; text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+            animation: pop 0.5s ease-out forwards, floatBall 3s ease-in-out infinite;
+            border: 2px solid rgba(255,255,255,0.3);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4), inset 0 0 15px rgba(255,255,255,0.2);
+        }
+
+        .numGrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 15px 0; }
+        .numGrid button { padding: 12px; border: 1px solid #333; display: block; }
+        .numGrid button.selected { background: var(--pink); border-color: var(--pink); color: white; }
+
+        #splitNotice { display: none; background: var(--yellow); color: #000; padding: 10px; margin-bottom: 15px; border-radius: 8px; text-align: center; font-weight: bold; }
+        .fund-item { display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding: 8px 0; font-size: 14px; }
+        
+        .material-symbols-outlined {
+            font-size: 20px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="wallet-display">
+        <span class="material-symbols-outlined" style="color:var(--yellow)">account_balance_wallet</span>
+        <span id="bal" style="color:var(--yellow); font-weight: bold; font-family: monospace; font-size: 18px;">0</span>
+        <span style="color:var(--yellow); font-size: 12px;">LKR</span>
+    </div>
+    <button onclick="openP('demo')">
+        <span class="material-symbols-outlined">add_circle</span>
+        Add Funds
+    </button>
+</div>
+
+<div id="timer">60</div>
+
+<div style="display:flex; justify-content:center; gap:10px;">
+    <button id="buyNavBtn" onclick="openBuy()">
+        <span class="material-symbols-outlined">confirmation_number</span>
+        Buy Ticket
+    </button>
+    <button onclick="openP('my')">
+        <span class="material-symbols-outlined">inventory_2</span>
+        My Tickets
+    </button>
+    <button onclick="openP('online')">
+        <span class="material-symbols-outlined">public</span>
+        Online Results
+    </button>
+</div>
+
+<div id="mainWin" style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin: 40px 0; min-height: 120px; padding: 0 20px;"></div>
+
+<div class="panel" id="buy">
+    <span class="close-btn" onclick="closeAll()">×</span>
+    <h3>Select 10 Numbers</h3>
+    <div class="numGrid" id="grid"></div>
+    <button id="confirmBuyBtn" onclick="confirmPurchase()" style="width:100%">
+        <span class="material-symbols-outlined">shopping_cart</span>
+        Confirm Purchase (100 LKR)
+    </button>
+    <p id="buyPanelStatus" style="color:var(--red); text-align:center; display:none; font-weight:bold; margin-top:10px;"></p>
+</div>
+
+<div class="panel" id="my">
+    <span class="close-btn" onclick="closeAll()">×</span>
+    <h3>My Ticket History</h3>
+    <div id="myList"></div>
+</div>
+
+<div class="panel" id="online">
+    <span class="close-btn" onclick="closeAll()">×</span>
+    <h3 id="onlineHeader">Current Round Results</h3>
+    <div id="splitNotice"></div>
+    <button onclick="openP('history')" style="width:100%; border-color:var(--yellow); color:var(--yellow); margin-bottom:15px;">
+        <span class="material-symbols-outlined">history</span>
+        View Past History
+    </button>
+    <div id="onlineList"></div>
+</div>
+
+<div class="panel" id="history">
+    <span class="close-btn" onclick="closeAll()">×</span>
+    <h3>Draw History</h3>
+    <div id="historyList"></div>
+</div>
+
+<div class="panel" id="deepView" style="z-index:110; border-color:var(--pink);">
+    <span class="close-btn" onclick="openP('history')">×</span>
+    <h3 id="dvTitle">Round Details</h3>
+    <div id="dvWinNums" style="display:flex; justify-content:center; gap:8px; margin-bottom:20px;"></div>
+    <div id="dvPlayerList"></div>
+</div>
+
+<div class="panel" id="demo">
+    <span class="close-btn" onclick="closeAll()">×</span>
+    <h3>Deposit Funds</h3>
+    <input type="range" min="100" max="5000" step="100" value="1000" id="slide" style="width:100%">
+    <div style="text-align:center; margin:15px; font-size:24px;">LKR <span id="slideVal">1000</span></div>
+    <button onclick="addFunds()" style="width:100%">
+        <span class="material-symbols-outlined">add_circle</span>
+        Deposit
+    </button>
+    <h3 style="margin-top:30px; border-top: 1px solid #333; padding-top:15px;">Transactions</h3>
+    <div id="fundHistoryList"></div>
+</div>
+
+<div class="dialog" id="msg"></div>
+
+<script>
+    let balance = 0, timer = 60, isDrawing = false, currentDrawId = 1;
+    let selectedNumbers = [], myTickets = [], allDrawHistory = [], transactions = [];
+
+    const TOTAL_PRIZE_POOL = 1100;
+    const P1_SINGLE_SHARE = 0.60; 
+    const P3_RESERVE_PCT = 0.20;
+    const demoNames = ["Amal", "Kamal", "Nimal", "Sunil", "Ruwan", "Kasun", "Saman", "Prasad", "Dilshan", "Tharindu"];
+
+    const ballGradients = [
+        'linear-gradient(135deg, #ff0055, #ff5500)', 'linear-gradient(135deg, #00ff88, #0088ff)',
+        'linear-gradient(135deg, #ff4dff, #8800ff)', 'linear-gradient(135deg, #00ffff, #0055ff)',
+        'linear-gradient(135deg, #ffee55, #ff8800)', 'linear-gradient(135deg, #ff4444, #ff0055)',
+        'linear-gradient(135deg, #4da6ff, #00ffff)', 'linear-gradient(135deg, #88ff00, #00ff88)',
+        'linear-gradient(135deg, #ff00ff, #5500ff)', 'linear-gradient(135deg, #ff8800, #ff0000)'
+    ];
+
+    window.onload = () => {
+        const grid = document.getElementById("grid");
+        for (let i = 1; i <= 50; i++) {
+            let b = document.createElement("button");
+            b.textContent = i;
+            b.onclick = () => {
+                if(isDrawing) return;
+                if(selectedNumbers.includes(i)){
+                    selectedNumbers = selectedNumbers.filter(n => n!==i);
+                    b.classList.remove("selected");
+                } else if(selectedNumbers.length < 10){
+                    selectedNumbers.push(i);
+                    b.classList.add("selected");
+                }
+            };
+            grid.appendChild(b);
+        }
+        setInterval(tick, 1000);
+    };
+
+    function tick() {
+        if(isDrawing) return;
+        timer--;
+        document.getElementById("timer").textContent = timer;
+        if(timer <= 0) startDraw();
+        if(document.getElementById("buy").style.display === "block") syncBuyPanelState();
+    }
+
+    function syncBuyPanelState() {
+        const btn = document.getElementById("confirmBuyBtn");
+        const statusMsg = document.getElementById("buyPanelStatus");
+        const hasTicket = myTickets.some(t => t.drawId === currentDrawId);
+        if(isDrawing) {
+            btn.disabled = true;
+            statusMsg.textContent = "⚠️ DRAWING IN PROGRESS - LOCKED";
+            statusMsg.style.display = "block";
+        } else if(hasTicket) {
+            btn.disabled = true;
+            statusMsg.textContent = "✅ ALREADY BOUGHT FOR THIS ROUND";
+            statusMsg.style.display = "block";
+        } else {
+            btn.disabled = false;
+            statusMsg.style.display = "none";
+        }
+    }
+
+    function renderBadges(nums, winNums = []) {
+        return `<div class="num-container">
+            ${nums.map(n => `<div class="num-badge ${winNums.includes(n) ? 'match' : ''}">${n}</div>`).join('')}
+        </div>`;
+    }
+
+    function openBuy() {
+        if(isDrawing) return showMsg("Draw in progress!", "var(--red)");
+        openP('buy');
+        syncBuyPanelState();
+    }
+
+    function confirmPurchase() {
+        if(isDrawing || myTickets.some(t => t.drawId === currentDrawId)) return;
+        if(selectedNumbers.length < 10) return showMsg("Pick 10 numbers!", "var(--red)");
+        if(balance < 100) return showMsg("Insufficient balance!", "var(--red)");
+        balance -= 100; addTransaction("Ticket Buy", -100);
+        const now = new Date();
+        myTickets.push({ 
+            drawId: currentDrawId, numbers: [...selectedNumbers], 
+            fullDate: now.toLocaleDateString() + " " + now.toLocaleTimeString(),
+            matchCount: 0, prize: 0, winNums: [], claimed: false, status: "PENDING"
+        });
+        selectedNumbers = [];
+        document.querySelectorAll(".numGrid button").forEach(b => b.classList.remove("selected"));
+        updateUI(); closeAll(); updateMyListUI();
+        showMsg("Purchase Successful!", "var(--green)");
+    }
+
+    async function startDraw() {
+        isDrawing = true;
+        syncBuyPanelState();
+        
+        const timerEl = document.getElementById("timer");
+        timerEl.innerHTML = '<span class="rolling">D</span><span class="rolling" style="animation-delay:0.1s">R</span><span class="rolling" style="animation-delay:0.2s">A</span><span class="rolling" style="animation-delay:0.3s">W</span><span class="rolling" style="animation-delay:0.4s">I</span><span class="rolling" style="animation-delay:0.5s">N</span><span class="rolling" style="animation-delay:0.6s">G</span>';
+
+        let winNums = [];
+        while(winNums.length < 10) {
+            let n = Math.floor(Math.random() * 50) + 1;
+            if(!winNums.includes(n)) winNums.push(n);
+        }
+        
+        const mainWin = document.getElementById("mainWin");
+        mainWin.innerHTML = "";
+        
+        for(let i = 0; i < winNums.length; i++) {
+            await new Promise(r => setTimeout(r, 800));
+            let ball = document.createElement("div");
+            ball.className = "win-ball";
+            ball.textContent = winNums[i];
+            ball.style.background = ballGradients[i];
+            mainWin.appendChild(ball);
+        }
+        finalizeRound(winNums);
+    }
+
+    function triggerConfetti() {
+        const duration = 3 * 1000;
+        const end = Date.now() + duration;
+
+        (function frame() {
+            confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#00ffff', '#ff4dff', '#00ff88'] });
+            confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#ffee55', '#ff4444', '#4da6ff'] });
+
+            if (Date.now() < end) {
+                requestAnimationFrame(frame);
+            }
+        }());
+    }
+
+    function finalizeRound(winNums) {
+        let players = [];
+        let myT = myTickets.find(t => t.drawId === currentDrawId);
+        if(myT) {
+            myT.winNums = winNums;
+            myT.status = "COMPLETED";
+            players.push({ name: "YOU", ticket: myT.numbers, isHuman: true, matchCount: 0, prize: 0, rank: "" });
+        }
+        demoNames.forEach(name => {
+            players.push({ name: name, ticket: generateRandomNumbers(), isHuman: false, matchCount: 0, prize: 0, rank: "" });
+        });
+        players.forEach(p => p.matchCount = p.ticket.filter(n => winNums.includes(n)).length);
+
+        let remainingPool = TOTAL_PRIZE_POOL;
+        let noticeText = "";
+        const groups = {};
+        players.forEach(p => {
+            if(p.matchCount > 0) {
+                if(!groups[p.matchCount]) groups[p.matchCount] = [];
+                groups[p.matchCount].push(p);
+            }
+        });
+        const sortedKeys = Object.keys(groups).map(Number).sort((a,b) => b-a);
+        if(sortedKeys.length > 0) {
+            const p1Match = sortedKeys[0];
+            const p1Group = groups[p1Match];
+            if(p1Group.length > 1) {
+                let reserveForP3 = 0;
+                if(sortedKeys.length > 1) reserveForP3 = Math.floor(TOTAL_PRIZE_POOL * P3_RESERVE_PCT);
+                let p1TotalShare = TOTAL_PRIZE_POOL - reserveForP3;
+                let individualP1Share = Math.floor(p1TotalShare / p1Group.length);
+                p1Group.forEach(p => { p.prize = individualP1Share; p.rank = "🥇 Tie"; });
+                remainingPool -= (individualP1Share * p1Group.length);
+                if(reserveForP3 > 0 && sortedKeys.length > 1) {
+                    const nextGroup = groups[sortedKeys[1]];
+                    let p3Share = Math.floor(remainingPool / nextGroup.length);
+                    nextGroup.forEach(p => { p.prize = p3Share; p.rank = "🥉 Protected"; });
+                    remainingPool = 0;
+                }
+            } else {
+                const winner = p1Group[0];
+                winner.prize = Math.floor(TOTAL_PRIZE_POOL * P1_SINGLE_SHARE);
+                winner.rank = "🥇 1st";
+                remainingPool -= winner.prize;
+                if(sortedKeys.length > 1) {
+                    const p2Match = sortedKeys[1];
+                    const p2Group = groups[p2Match];
+                    if(sortedKeys.length > 2) {
+                        let p2TotalShare = Math.floor(remainingPool * 0.70);
+                        let individualP2Share = Math.floor(p2TotalShare / p2Group.length);
+                        p2Group.forEach(p => { p.prize = individualP2Share; p.rank = "🥈 2nd"; });
+                        remainingPool -= (individualP2Share * p2Group.length);
+                        const p3Group = groups[sortedKeys[2]];
+                        let individualP3Share = Math.floor(remainingPool / p3Group.length);
+                        p3Group.forEach(p => { p.prize = individualP3Share; p.rank = "🥉 3rd"; });
+                        remainingPool = 0;
+                    } else {
+                        let p2Share = Math.floor(remainingPool / p2Group.length);
+                        p2Group.forEach(p => { p.prize = p2Share; p.rank = "🥈 2nd"; });
+                        remainingPool = 0;
+                    }
+                }
+            }
+        }
+        if(remainingPool > 0 && players.some(p => p.prize > 0)) {
+            players.sort((a,b) => b.prize - a.prize)[0].prize += remainingPool;
+        }
+
+        if(myT) {
+            let me = players.find(p => p.isHuman);
+            myT.matchCount = me.matchCount; myT.prize = me.prize;
+            if(myT.prize > 0) triggerConfetti(); 
+        }
+
+        const now = new Date();
+        const formattedFullDate = now.toLocaleDateString() + " " + now.toLocaleTimeString();
+
+        allDrawHistory.push({ 
+            drawId: currentDrawId, 
+            winNums: winNums, 
+            players: JSON.parse(JSON.stringify(players)), 
+            time: formattedFullDate, 
+            splitMsg: noticeText 
+        });
+
+        updateOnlineUI(players, winNums, noticeText, formattedFullDate);
+        updateMyListUI(); 
+        updateHistoryListUI();
+
+        setTimeout(() => { 
+            currentDrawId++; 
+            timer = 60; 
+            isDrawing = false; 
+            document.getElementById("mainWin").innerHTML = ""; 
+            syncBuyPanelState(); 
+        }, 8000);
+    }
+
+    function updateOnlineUI(players, winNums, msg, timeStr) {
+        const list = document.getElementById("onlineList"), banner = document.getElementById("splitNotice");
+        const header = document.getElementById("onlineHeader");
+        
+        header.innerHTML = `Current Round Results <br> <small style="color:var(--blue); font-size:0.8rem;">${timeStr}</small>`;
+        
+        list.innerHTML = ""; banner.style.display = msg ? "block" : "none"; banner.textContent = msg;
+        players.sort((a,b) => b.matchCount - a.matchCount).forEach(p => {
+            list.innerHTML += `<div class="card" style="${p.isHuman ? 'border-color:var(--pink)' : ''}">
+                <strong>${p.rank} ${p.name}</strong>
+                ${renderBadges(p.ticket, winNums)}
+                <div class="${p.prize > 0 ? 'prize-blink' : ''}" style="color:var(--green)">
+                    Match: ${p.matchCount} | ${p.prize > 0 ? 'WON LKR ' + p.prize : 'No Prize'}
+                </div>
+            </div>`;
+        });
+    }
+
+    function updateMyListUI() {
+        const list = document.getElementById("myList"); list.innerHTML = "";
+        [...myTickets].reverse().forEach(t => {
+            const isCompleted = t.status === "COMPLETED";
+            list.innerHTML += `<div class="card">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span style="color:var(--blue); font-weight:bold; font-size:13px;">Draw #${t.drawId} | ${t.fullDate}</span>
+                    <span style="color:${isCompleted ? 'var(--green)' : 'var(--yellow)'}; font-size:12px; font-weight:bold;">${t.status}</span>
+                </div>
+                ${renderBadges(t.numbers, t.winNums)}
+                <div style="color:var(--green)">${isCompleted ? (t.prize > 0 ? '<span class="prize-blink">WIN: LKR ' + t.prize + '</span>' : 'Matches: ' + t.matchCount) : 'Waiting for Draw...'}</div>
+                ${t.prize > 0 && !t.claimed ? `<button onclick="claim(${t.drawId})" style="width:100%; margin-top:10px;"><span class="material-symbols-outlined">payments</span> Claim Prize</button>` : ''}
+            </div>`;
+        });
+    }
+
+    function updateHistoryListUI() {
+        const list = document.getElementById("historyList"); list.innerHTML = "";
+        [...allDrawHistory].reverse().forEach(h => {
+            list.innerHTML += `<div class="card" onclick="viewDeep(${h.drawId})" style="cursor:pointer">
+                <div>Draw #${h.drawId} <span style="color:var(--pink); float:right">View Details ></span></div>
+                <div style="color:var(--blue); font-size:12px; margin-top:5px;">${h.time}</div>
+            </div>`;
+        });
+    }
+
+    function viewDeep(id) {
+        const h = allDrawHistory.find(x => x.drawId === id); if(!h) return;
+        document.getElementById("dvTitle").innerHTML = `Round #${id} Details <br> <small style="color:var(--blue); font-size:0.7em;">${h.time}</small>`;
+        document.getElementById("dvWinNums").innerHTML = h.winNums.map((n, i) => `<div class="win-ball" style="width:35px; height:35px; font-size:14px; background:${ballGradients[i]}; animation:none;">${n}</div>`).join("");
+        document.getElementById("dvPlayerList").innerHTML = h.players.sort((a,b) => b.matchCount - a.matchCount).map(p => `
+            <div class="card"><strong>${p.rank} ${p.name}</strong><br>Match: ${p.matchCount} | <span class="${p.prize > 0 ? 'prize-blink' : ''}" style="color:var(--green)">Prize: ${p.prize} LKR</span></div>`).join("");
+        openP('deepView');
+    }
+
+    function addTransaction(type, amt) {
+        transactions.unshift({ type, amt, time: new Date().toLocaleTimeString() });
+        const list = document.getElementById("fundHistoryList");
+        list.innerHTML = transactions.map(tr => `<div class="fund-item"><span>${tr.type} <br><small style="color:#666">${tr.time}</small></span><b style="color:${tr.amt > 0 ? 'var(--green)' : 'var(--red)'}">${tr.amt > 0 ? '+' : ''}${tr.amt} LKR</b></div>`).join('');
+    }
+
+    function claim(id) { 
+        let t = myTickets.find(x => x.drawId === id); 
+        if(t && !t.claimed) { balance += t.prize; t.claimed = true; addTransaction("Prize Claim", t.prize); updateUI(); updateMyListUI(); showMsg(`Claimed LKR ${t.prize}!`, "var(--green)"); } 
+    }
+
+    function addFunds() { let amt = parseInt(slide.value); balance += amt; addTransaction("Deposit", amt); updateUI(); closeAll(); showMsg("Funds Added!", "var(--green)"); }
+    function generateRandomNumbers() { let arr = []; while(arr.length < 10) { let n = Math.floor(Math.random() * 50) + 1; if(!arr.includes(n)) arr.push(n); } return arr; }
+    function openP(id) { closeAll(); document.getElementById(id).style.display = "block"; }
+    function closeAll() { document.querySelectorAll(".panel").forEach(p => p.style.display = "none"); }
+    function updateUI() { document.getElementById("bal").textContent = balance; }
+    
+    /* Updated Message Display Function */
+    function showMsg(txt, color) { 
+        const d = document.getElementById("msg"); 
+        d.textContent = txt; 
+        d.style.background = color; 
+        d.style.display = "block"; 
+        setTimeout(() => { d.style.display = "none"; }, 3000); 
+    }
+    
+    slide.oninput = () => document.getElementById("slideVal").textContent = slide.value;
+</script>
+</body>
+</html>
